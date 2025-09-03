@@ -36,6 +36,12 @@ class _CountryModelBottomSheetState extends State<CountryModelBottomSheet> {
     List json = jsonDecode(jsonString);
     List<Map<String, dynamic>> convertedList =
         json.map((item) => Map<String, dynamic>.from(item)).toList();
+    // Move Uganda to the first position
+    int ugandaIndex = convertedList.indexWhere((c) => c['name'] == 'Uganda');
+    if (ugandaIndex != -1) {
+      final uganda = convertedList.removeAt(ugandaIndex);
+      convertedList.insert(0, uganda);
+    }
     setState(() {
       countryList = convertedList;
       filteredList = convertedList;

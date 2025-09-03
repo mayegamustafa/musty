@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -35,11 +36,43 @@ class _LoginLayoutState extends State<LoginLayout> {
 
   final GlobalKey<FormBuilderState> formKey = GlobalKey<FormBuilderState>();
 
+  final LocalAuthentication auth = LocalAuthentication();
+
   @override
   void initState() {
     phoneController.text = 'user@readyecommerce.com';
     passwordController.text = 'secret';
     super.initState();
+  }
+
+  Future<void> _authenticateWithBiometrics(BuildContext context, WidgetRef ref) async {
+    try {
+      bool canCheckBiometrics = await auth.canCheckBiometrics;
+      bool isAuthenticated = false;
+      if (canCheckBiometrics) {
+        isAuthenticated = await auth.authenticate(
+          localizedReason: 'Authenticate with fingerprint',
+          options: const AuthenticationOptions(biometricOnly: true),
+        );
+      }
+      if (isAuthenticated) {
+        // You can customize this logic to fetch user credentials securely
+        // For demo, use the default credentials
+        await ref.read(authControllerProvider.notifier).login(
+          phone: phoneController.text,
+          password: passwordController.text,
+        );
+        context.nav.pushNamed(Routes.getCoreRouteName(AppConstants.appServiceName));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Fingerprint authentication failed')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: e')),
+      );
+    }
   }
 
   @override
@@ -131,106 +164,116 @@ class _LoginLayoutState extends State<LoginLayout> {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20.w)
           .copyWith(bottom: 20.h, top: 40.h),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            S.of(context).welcomeBack,
-            style: AppTextStyle(context)
-                .title
-                .copyWith(fontWeight: FontWeight.bold),
-          ),
-          Gap(20.h),
-          CustomTextFormField(
-            name: S.of(context).emailOrPhone,
-            hintText: S.of(context).emailOrPhone,
-            textInputType: TextInputType.text,
-            controller: phoneController,
-            focusNode: fNodes[0],
-            textInputAction: TextInputAction.next,
-            validator: (value) => GlobalFunction.commonValidator(
-              value: value!,
-              hintText: S.of(context).emailOrPhone,
-              context: context,
-            ),
-          ),
-          Gap(20.h),
-          Consumer(builder: (context, ref, _) {
-            return CustomTextFormField(
-              name: S.of(context).password,
-              hintText: S.of(context).password,
-              textInputType: TextInputType.text,
-              focusNode: fNodes[1],
-              controller: passwordController,
-              textInputAction: TextInputAction.done,
-              obscureText: ref.watch(obscureText1),
-              widget: IconButton(
-                splashColor: Colors.transparent,
-                onPressed: () {
-                  ref.read(obscureText1.notifier).state =
-                      !ref.read(obscureText1);
-                },
-                icon: Icon(
-                  !ref.watch(obscureText1)
-                      ? Icons.visibility
-                      : Icons.visibility_off,
-                  color: colors(context).hintTextColor,
+      child: Consumer(
+        builder: (context, ref, _) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                S.of(context).welcomeBack,
+                style: AppTextStyle(context)
+                    .title
+                    .copyWith(fontWeight: FontWeight.bold),
+              ),
+              Gap(20.h),
+              CustomTextFormField(
+                name: S.of(context).emailOrPhone,
+                hintText: S.of(context).emailOrPhone,
+                textInputType: TextInputType.text,
+                controller: phoneController,
+                focusNode: fNodes[0],
+                textInputAction: TextInputAction.next,
+                validator: (value) => GlobalFunction.commonValidator(
+                  value: value!,
+                  hintText: S.of(context).emailOrPhone,
+                  context: context,
                 ),
               ),
-              validator: (value) => GlobalFunction.passwordValidator(
-                value: value!,
+              Gap(20.h),
+              CustomTextFormField(
+                name: S.of(context).password,
                 hintText: S.of(context).password,
-                context: context,
+                textInputType: TextInputType.text,
+                focusNode: fNodes[1],
+                controller: passwordController,
+                textInputAction: TextInputAction.done,
+                obscureText: ref.watch(obscureText1),
+                widget: IconButton(
+                  splashColor: Colors.transparent,
+                  onPressed: () {
+                    ref.read(obscureText1.notifier).state =
+                        !ref.read(obscureText1);
+                  },
+                  icon: Icon(
+                    !ref.watch(obscureText1)
+                        ? Icons.visibility
+                        : Icons.visibility_off,
+                    color: colors(context).hintTextColor,
+                  ),
+                ),
+                validator: (value) => GlobalFunction.passwordValidator(
+                  value: value!,
+                  hintText: S.of(context).password,
+                  context: context,
+                ),
               ),
-            );
-          }),
-          Gap(20.h),
-          Align(
-            alignment: Alignment.bottomRight,
-            child: GestureDetector(
-              onTap: () => context.nav.pushNamed(
-                Routes.recoverPassword,
-                arguments: true,
+              Gap(20.h),
+              Align(
+                alignment: Alignment.bottomRight,
+                child: GestureDetector(
+                  onTap: () => context.nav.pushNamed(
+                    Routes.recoverPassword,
+                    arguments: true,
+                  ),
+                  child: Text(
+                    S.of(context).forgotPassword,
+                    style: AppTextStyle(context).bodyText,
+                  ),
+                ),
               ),
-              child: Text(
-                S.of(context).forgotPassword,
-                style: AppTextStyle(context).bodyText,
-              ),
-            ),
-          ),
-          Gap(30.h),
-          Consumer(builder: (context, ref, _) {
-            return ref.watch(authControllerProvider)
-                ? const Center(
-                    child: CircularProgressIndicator(),
-                  )
-                : CustomButton(
-                    buttonText: S.of(context).login,
-                    onPressed: () {
-                      FocusScope.of(context).unfocus();
-                      if (formKey.currentState!.validate()) {
-                        ref
-                            .read(authControllerProvider.notifier)
-                            .login(
-                              phone: phoneController.text,
-                              password: passwordController.text,
-                            )
-                            .then((response) {
-                          ref
-                              .read(addressControllerProvider.notifier)
-                              .getAddress();
-                          if (response.isSuccess) {
-                            context.nav.pushNamed(Routes.getCoreRouteName(
-                                AppConstants.appServiceName));
-                          }
-                        });
-                      }
-                    },
-                  );
-          }),
-          Consumer(
-            builder: (context, ref, _) {
-              return Align(
+              Gap(30.h),
+              ref.watch(authControllerProvider)
+                  ? const Center(
+                      child: CircularProgressIndicator(),
+                    )
+                  : Column(
+                      children: [
+                        CustomButton(
+                          buttonText: S.of(context).login,
+                          onPressed: () {
+                            FocusScope.of(context).unfocus();
+                            if (formKey.currentState!.validate()) {
+                              ref
+                                  .read(authControllerProvider.notifier)
+                                  .login(
+                                    phone: phoneController.text,
+                                    password: passwordController.text,
+                                  )
+                                  .then((response) {
+                                ref
+                                    .read(addressControllerProvider.notifier)
+                                    .getAddress();
+                                if (response.isSuccess) {
+                                  context.nav.pushNamed(Routes.getCoreRouteName(
+                                      AppConstants.appServiceName));
+                                }
+                              });
+                            }
+                          },
+                        ),
+                        Gap(16.h),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.fingerprint),
+                          label: const Text('Login with Fingerprint'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colors(context).primaryColor,
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: () => _authenticateWithBiometrics(context, ref),
+                        ),
+                      ],
+                    ),
+              Align(
                 alignment: Alignment.center,
                 child: Visibility(
                   visible: !ref.read(hiveServiceProvider).userIsLoggedIn(),
@@ -249,10 +292,10 @@ class _LoginLayoutState extends State<LoginLayout> {
                     ),
                   ),
                 ),
-              );
-            },
-          )
-        ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
