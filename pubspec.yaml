@@ -28,9 +28,16 @@ dependencies:
   hive_flutter: ^1.1.0
   dotted_border: ^2.1.0
 
+<<<<<<< HEAD
   geolocator: ^10.1.1
   local_auth: ^2.1.7
 
+=======
+  geolocator: ^13.1.0
+  local_auth: ^2.1.7
+
+
+>>>>>>> 2a8446554ef6f9cd71061149f0e5385c8a8879dd
   image_picker: ^1.0.7
   dio: ^5.4.0
   pretty_dio_logger: ^1.3.1
