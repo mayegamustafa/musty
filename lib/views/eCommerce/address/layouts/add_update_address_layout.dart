@@ -32,18 +32,40 @@ class AddUpdateAddressLayout extends ConsumerStatefulWidget {
 
 class _AddUpdateAddressLayoutState
     extends ConsumerState<AddUpdateAddressLayout> {
+  /// Form key
+  final _formKey = GlobalKey<FormState>();
+
   /// Controllers
-  final addressLine1Controller = TextEditingController();
-  final addressLine2Controller = TextEditingController();
+  late final TextEditingController addressLine1Controller;
+  late final TextEditingController addressLine2Controller;
 
   /// State variables
   int activeIndex = 0;
   String addressTag = '';
 
-  /// Available address tags
+  /// Available tags
   final List<String> addressTags = ["HOME", "OFFICE", "OTHER"];
 
-  /// Translate tags based on localization
+  @override
+  void initState() {
+    super.initState();
+    addressLine1Controller =
+        TextEditingController(text: widget.address?.line1 ?? '');
+    addressLine2Controller =
+        TextEditingController(text: widget.address?.line2 ?? '');
+    addressTag = widget.address?.tag ?? addressTags.first;
+    activeIndex = addressTags.indexOf(addressTag);
+    if (activeIndex == -1) activeIndex = 0;
+  }
+
+  @override
+  void dispose() {
+    addressLine1Controller.dispose();
+    addressLine2Controller.dispose();
+    super.dispose();
+  }
+
+  /// Translate tag
   String getTagTranslation({
     required String tag,
     required BuildContext context,
@@ -118,7 +140,7 @@ class _AddUpdateAddressLayoutState
     );
   }
 
-  /// Location getter
+  /// Location fetcher
   Future<void> _getCurrentLocation() async {
     bool serviceEnabled;
     LocationPermission permission;
@@ -144,16 +166,25 @@ class _AddUpdateAddressLayoutState
       desiredAccuracy: LocationAccuracy.high,
     );
 
-    // TODO: You can use geocoding here to convert lat/lng into human-readable address
-    addressLine1Controller.text =
-        'Lat: ${position.latitude}, Lng: ${position.longitude}';
+    setState(() {
+      addressLine1Controller.text =
+          'Lat: ${position.latitude}, Lng: ${position.longitude}';
+    });
   }
 
-  @override
-  void dispose() {
-    addressLine1Controller.dispose();
-    addressLine2Controller.dispose();
-    super.dispose();
+  /// Save / Update handler
+  void _saveAddress(BuildContext context) {
+    if (_formKey.currentState?.validate() ?? false) {
+      final newAddress = AddAddress(
+        line1: addressLine1Controller.text.trim(),
+        line2: addressLine2Controller.text.trim(),
+        tag: addressTag,
+      );
+
+      ref.read(addressControllerProvider.notifier).addOrUpdateAddress(newAddress);
+
+      Navigator.of(context).pop();
+    }
   }
 
   @override
@@ -170,53 +201,50 @@ class _AddUpdateAddressLayoutState
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16.w),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            buildAddressTag(context),
-            Gap(20.h),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              buildAddressTag(context),
+              Gap(20.h),
 
-            /// Address Line 1
-            CustomTextField(
-              controller: addressLine1Controller,
-              labelText: S.of(context).addressLine1,
-            ),
-            Gap(16.h),
+              /// Address Line 1
+              CustomTextField(
+                controller: addressLine1Controller,
+                labelText: S.of(context).addressLine1,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return S.of(context).fieldRequired;
+                  }
+                  return null;
+                },
+              ),
+              Gap(16.h),
 
-            /// Address Line 2
-            CustomTextField(
-              controller: addressLine2Controller,
-              labelText: S.of(context).addressLine2,
-            ),
-            Gap(16.h),
+              /// Address Line 2
+              CustomTextField(
+                controller: addressLine2Controller,
+                labelText: S.of(context).addressLine2,
+              ),
+              Gap(16.h),
 
-            /// Get Current Location Button
-            CustomButton(
-              label: S.of(context).useCurrentLocation,
-              onPressed: _getCurrentLocation,
-            ),
-            Gap(20.h),
+              /// Get Current Location Button
+              CustomButton(
+                label: S.of(context).useCurrentLocation,
+                onPressed: _getCurrentLocation,
+              ),
+              Gap(20.h),
 
-            /// Save Button
-            CustomButton(
-              label: widget.address == null
-                  ? S.of(context).save
-                  : S.of(context).update,
-              onPressed: () {
-                // Example usage of ref
-                ref
-                    .read(addressControllerProvider.notifier)
-                    .addOrUpdateAddress(
-                      AddAddress(
-                        line1: addressLine1Controller.text,
-                        line2: addressLine2Controller.text,
-                        tag: addressTag,
-                      ),
-                    );
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
+              /// Save Button
+              CustomButton(
+                label: widget.address == null
+                    ? S.of(context).save
+                    : S.of(context).update,
+                onPressed: () => _saveAddress(context),
+              ),
+            ],
+          ),
         ),
       ),
     );
